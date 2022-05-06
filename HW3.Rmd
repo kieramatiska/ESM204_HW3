@@ -11,13 +11,36 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(rootSolve)
 library(janitor)
+library(tibble)
 ```
 
 ```{r}
 df <- read_csv("HW3_data.csv") %>% 
   select(-1) %>% 
-  clean_names()
+  clean_names() %>% 
+  mutate(msc = 51)
 ```
+
+## Question 1
+
+```{r}
+# 2000 pounds = 1 ton
+kWh_ton_co2 <- 0.85/2000 
+
+# MSC is a straight line at $51
+msc <- tibble(q_kwh = 0:820000, price_msc = 51)
+
+# Marginal cost function
+mc_tibble <- tibble(q_kwh = 0:820000, price = q_kwh * 0.10)
+
+mc_msc <- merge(msc, mc_tibble)
+
+ggplot(mc_msc) +
+  geom_line(aes(x = q_kwh, y = price_msc), color = "red") +
+  geom_line(aes(x = q_kwh, y = price), color = "blue")
+```
+
+## Question 2
 
 ```{r}
 model_demand_l <- lm(price_cents  ~ q_low_kwh, data=df)
@@ -53,11 +76,14 @@ demand_agg <- function(p){
 price = seq(0, 30, length.out = 100)
 Qagg <- map(price, demand_agg) %>% unlist()
 
-df_agg <- tibble(Qagg = Qagg, price = price)
+df_agg <- tibble(Qagg = Qagg, price = price, mc_price = 0.10 * Qagg)
 
-ggplot(df, aes(Qagg, price)) +
+ggplot(df_agg, aes(Qagg, price)) +
   geom_line()
+  # geom_line(aes(Qagg, mc_price))
 ```
+
+
 
 ```{r}
 # I also define functions for calculating the consumer surplus:
