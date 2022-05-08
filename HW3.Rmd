@@ -70,16 +70,19 @@ demand_agg <- function(p){
   q <- demand(p, model_demand_l) + demand(p, model_demand_h)
   return(q)
 }
+
 ```
 
 ```{r}
 price = seq(0, 30, length.out = 100)
 Qagg <- map(price, demand_agg) %>% unlist()
+Q_hgih <- map(price, q_high_kwh)
 
 df_agg <- tibble(Qagg = Qagg, price = price, mc_price = 0.10 * Qagg)
 
 ggplot(df_agg, aes(Qagg, price)) +
-  geom_line()
+  geom_line() +
+  geom_line(data = df, aes())
   # geom_line(aes(Qagg, mc_price))
 ```
 
