@@ -105,6 +105,14 @@ ggplot() +
   geom_line(data = df_low,
             aes(x = Q_low, y = price),
             color = "blue")
+  # geom_line(data = df_low,
+  #            aes(x = Q_low, y = mc_price),
+  #          color = "black")
+
+# Slope of demand aggragate line after (find this value)
+slope_after <- (df_agg$price[100] - df_agg$price[52]) / (df_agg$Qagg[100] - df_agg$Qagg[52])
+slope_before <- (df_agg$price[2] - df_agg$price[1]) / (df_agg$Qagg[2] - df_agg$Qagg[1])
+slope_high <- (df_high$price[100] - df_high$price[1]) / (df_high$Q_high[100] - df_high$Q_high[1])
 ```
 
 
