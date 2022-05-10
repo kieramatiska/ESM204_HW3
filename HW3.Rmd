@@ -25,7 +25,7 @@ df <- read_csv("HW3_data.csv") %>%
 
 ```{r}
 # 2000 pounds = 1 ton
-kWh_ton_co2 <- 0.85/2000 
+kWh_ton_co2 <- 0.85/2205 
 
 # MSC is a straight line at $51
 msc <- tibble(q_kwh = 0:820000, price_msc = 51)
@@ -91,9 +91,9 @@ Q_high <- map(price, demand_high) %>%
 Q_low <- map(price, demand_low) %>% 
   unlist()
 
-df_agg <- tibble(Qagg = Qagg, price = price, mc_price = 0.10 * Qagg)
-df_high <- tibble(Q_high = Q_high, price = price, mc_price = 0.10 * Q_high)
-df_low <- tibble(Q_low = Q_low, price = price, mc_price = 0.10 * Q_low)
+df_agg <- tibble(Qagg = Qagg, price = price)
+df_high <- tibble(Q_high = Q_high, price = price)
+df_low <- tibble(Q_low = Q_low, price = price)
 
 ggplot() +
   geom_line(data = df_agg, 
@@ -104,10 +104,10 @@ ggplot() +
             color = "red") +
   geom_line(data = df_low,
             aes(x = Q_low, y = price),
-            color = "blue")
-  # geom_line(data = df_low,
-  #            aes(x = Q_low, y = mc_price),
-  #          color = "black")
+            color = "blue") +
+  geom_line(data = df_agg,
+             aes(x = Qagg, y = mc_price),
+           color = "black")
 
 # Slope of demand aggragate line after (find this value)
 slope_after <- (df_agg$price[100] - df_agg$price[52]) / (df_agg$Qagg[100] - df_agg$Qagg[52])
