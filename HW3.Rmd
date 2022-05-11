@@ -20,12 +20,18 @@ df <- read_csv("HW3_data.csv") %>%
   clean_names()
 ```
 
+# Important Functions
+
+```{r}
+
+```
+
 # Question 1
 
 ```{r}
 # 2205 pounds = 1 ton
 # $1 = 100 cents
-kWh_ton_co2 <- (100 * 0.85 * 51) / 2205
+MEC <- (100 * 0.85 * 51) / 2205
 ```
 
 # Question 2
@@ -58,18 +64,40 @@ demand_agg <- function(p){
   q <- demand_quant(p, model_demand_l) + demand_quant(p, model_demand_h)
   return(q)
 }
+
+demand_low <- function(p) {
+  q <- demand_quant(p, model_demand_l)
+  return(q)
+}
+
+demand_high <- function(p) {
+  q <- demand_quant(p, model_demand_h)
+  return(q)
+}
 ```
 
 ```{r}
 price = seq(0, 30, length.out = 100)
 Qagg <- map(price, demand_agg) %>% 
   unlist()
+Qlow <- map(price, demand_low) %>% 
+  unlist()
+Qhigh <- map(price, demand_high) %>% 
+  unlist()
 
-df_agg <- tibble(Qagg = Qagg, price = price, mec = 1.97)
+df_agg <- tibble(Qagg = Qagg, price = price, mec = MEC)
+df_high <- tibble(Q_high = Qhigh, price = price, mec = MEC)
+df_low <- tibble(Q_low = Qlow, price = price, mec = MEC)
 
 # Demand Aggregate equation: P = -3.68e-5Q + 29.78
 D_agg <- lm(price ~ Qagg, data = df_agg)
 p <- 10
+
+# function for d_agg equation after kink (to find price)
+D_agg_fun <- function(q) {
+  p <- (D_agg$coefficients[[2]] * q) + D_agg$coefficients[[1]]
+  return(p)
+}
 
 # Calculate quantity at free-market equilibrium
 d_agg_model <- demand_quant(p, D_agg)
@@ -91,7 +119,7 @@ quantity = seq(0, 825000, length.out = 100)
 mpc <- map(quantity, mpc_curve) %>% 
   unlist()
 
-df_mpc <- tibble(quantity = quantity, price = mpc, mec = 1.97, msc = (mpc_slope * quantity) + mec)
+df_mpc <- tibble(quantity = quantity, price = mpc, mec = MEC, msc = (mpc_slope * quantity) + mec)
 
 mpc_model <- lm(price ~ quantity, data = df_mpc)
 
@@ -137,7 +165,7 @@ producer_surplus <- ps(p)
 
 ```{r}
 # TEC = 1,057,941.50 cents
-TEC <- kWh_ton_co2 * d_agg_model
+TEC <- MEC * d_agg_model
 ```
 
 ```{r}
@@ -148,11 +176,17 @@ ggplot() +
   geom_line(data = df_mpc,
             aes(x = quantity, y = price),
             color = "red") +
-  geom_hline(yintercept = kWh_ton_co2,
+  geom_hline(yintercept = MEC,
              color = "darkgreen") +
   geom_line(data = df_mpc,
             aes(x = quantity, y = msc),
-            color = "blue")
+            color = "blue") +
+  geom_line(data = df_high,
+            aes(x = Q_high, y = price),
+            color = "coral") +
+  geom_line(data = df_low,
+            aes(x = Q_low, y = price),
+            color = "maroon")
 ```
 
 # Question 3
@@ -172,9 +206,60 @@ low_perc <- benefit_low * 100
 
 # Question 4
 
+Make a function for high demand line
+
 ```{r}
 # optimal electricity tax = 1.97 cents
 
+# find MSC function for price
+MSC_fun <- function(q) {
+  p <- mpc_slope * q + MEC
+  return(p)
+}
+
+# Equation of MSC: p = 1.86e-5Q + 1.97
+MSC <- lm(msc ~ quantity, data = df_mpc)
+
+# q-tilde = 502,599 kWh
+q_tilde <- (D_agg$coefficients[1] - MSC$coefficients[1]) / (MSC$coefficients[2] - D_agg$coefficients[2])
+
+# p-tilde = 11.3 cents
+p_tilde <- MSC_fun(q_tilde)
+
+CS_high <- function(p){
+  cs <- CS(p, model_demand_h)
+  return(cs)
+}
+
+CS_low <- function(p){
+  cs <- CS(p, model_demand_l)
+  return(cs)
+}
+
+# CS with tax is 4,621,978. Welfare decreases with tax.
+cs_w_tax <- CS_agg(p_tilde)
+
+# CS for high income consumers is 3,961,454. Welfare decreased with tax.
+cs_high_w_tax <- CS_high(p_tilde)
+
+# CS for low income consumers is 660,524. Welfare decreased with tax.
+cs_low_w_tax <- CS_low(p_tilde)
+
+p_tau <- p_tilde - MEC
+
+# PS with tax is 2,347,101. Welfare decreases with tax.
+ps_w_tax <- ps(p_tau)
+
+tax_rev <- function(q) {
+  area <- MEC * q
+  return(area)
+}
+
+# total environmental damage is 988,103
+TED <- tax_rev(q_tilde)
+
+# total environmental damage is 988,103
+tot_rev <- tax_rev(q_tilde)
 ```
 
 
