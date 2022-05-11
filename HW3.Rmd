@@ -65,7 +65,7 @@ price = seq(0, 30, length.out = 100)
 Qagg <- map(price, demand_agg) %>% 
   unlist()
 
-df_agg <- tibble(Qagg = Qagg, price = price)
+df_agg <- tibble(Qagg = Qagg, price = price, mec = 1.97)
 
 # Demand Aggregate equation: P = -3.68e-5Q + 29.78
 D_agg <- lm(price ~ Qagg, data = df_agg)
@@ -91,7 +91,7 @@ quantity = seq(0, 825000, length.out = 100)
 mpc <- map(quantity, mpc_curve) %>% 
   unlist()
 
-df_mpc <- tibble(quantity = quantity, price = mpc)
+df_mpc <- tibble(quantity = quantity, price = mpc, mec = 1.97, msc = (mpc_slope * quantity) + mec)
 
 mpc_model <- lm(price ~ quantity, data = df_mpc)
 
@@ -149,7 +149,10 @@ ggplot() +
             aes(x = quantity, y = price),
             color = "red") +
   geom_hline(yintercept = kWh_ton_co2,
-             color = "darkgreen")
+             color = "darkgreen") +
+  geom_line(data = df_mpc,
+            aes(x = quantity, y = msc),
+            color = "blue")
 ```
 
 # Question 3
@@ -169,6 +172,10 @@ low_perc <- benefit_low * 100
 
 # Question 4
 
+```{r}
+# optimal electricity tax = 1.97 cents
+
+```
 
 
 
