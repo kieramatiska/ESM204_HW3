@@ -17,30 +17,18 @@ library(tibble)
 ```{r}
 df <- read_csv("HW3_data.csv") %>% 
   select(-1) %>% 
-  clean_names() %>% 
-  mutate(msc = 51)
+  clean_names()
 ```
 
-## Question 1
+# Question 1
 
 ```{r}
-# 2000 pounds = 1 ton
-kWh_ton_co2 <- 0.85/2205 
-
-# MSC is a straight line at $51
-msc <- tibble(q_kwh = 0:820000, price_msc = 51)
-
-# Marginal cost function
-mc_tibble <- tibble(q_kwh = 0:820000, price = q_kwh * 0.10)
-
-mc_msc <- merge(msc, mc_tibble)
-
-ggplot(mc_msc) +
-  geom_line(aes(x = q_kwh, y = price_msc), color = "red") +
-  geom_line(aes(x = q_kwh, y = price), color = "blue")
+# 2205 pounds = 1 ton
+# $1 = 100 cents
+kWh_ton_co2 <- (100 * 0.85 * 51) / 2205
 ```
 
-## Question 2
+# Question 2
 
 ```{r}
 model_demand_l <- lm(price_cents  ~ q_low_kwh, data=df)
@@ -57,7 +45,7 @@ model_demand_h <- lm(price_cents ~ q_high_kwh, data=df)
 
 # define a function to get demand
 
-demand <- function(p, model){
+demand_quant <- function(p, model){
   q <- (p - model$coefficients[[1]])/model$coefficients[[2]]
   q <- ifelse(q<0,0,q)
   return(q)
@@ -67,17 +55,7 @@ demand <- function(p, model){
 ```{r}
 # for each p level, return estimated aggregate demand
 demand_agg <- function(p){
-  q <- demand(p, model_demand_l) + demand(p, model_demand_h)
-  return(q)
-}
-
-demand_high <- function(p){
-  q <- demand(p, model_demand_h)
-  return(q)
-}
-
-demand_low <- function(p){
-  q <- demand(p, model_demand_l)
+  q <- demand_quant(p, model_demand_l) + demand_quant(p, model_demand_h)
   return(q)
 }
 ```
@@ -86,42 +64,48 @@ demand_low <- function(p){
 price = seq(0, 30, length.out = 100)
 Qagg <- map(price, demand_agg) %>% 
   unlist()
-Q_high <- map(price, demand_high) %>% 
-  unlist()
-Q_low <- map(price, demand_low) %>% 
-  unlist()
 
 df_agg <- tibble(Qagg = Qagg, price = price)
-df_high <- tibble(Q_high = Q_high, price = price)
-df_low <- tibble(Q_low = Q_low, price = price)
 
-ggplot() +
-  geom_line(data = df_agg, 
-            aes(x = Qagg, y = price),
-            color = "black") +
-  geom_line(data = df_high,
-            aes(x = Q_high, y = price),
-            color = "red") +
-  geom_line(data = df_low,
-            aes(x = Q_low, y = price),
-            color = "blue") +
-  geom_line(data = df_agg,
-             aes(x = Qagg, y = mc_price),
-           color = "black")
+# Demand Aggregate equation: P = -3.68e-5Q + 29.78
+D_agg <- lm(price ~ Qagg, data = df_agg)
+p <- 10
 
-# Slope of demand aggragate line after (find this value)
-slope_after <- (df_agg$price[100] - df_agg$price[52]) / (df_agg$Qagg[100] - df_agg$Qagg[52])
-slope_before <- (df_agg$price[2] - df_agg$price[1]) / (df_agg$Qagg[2] - df_agg$Qagg[1])
-slope_high <- (df_high$price[100] - df_high$price[1]) / (df_high$Q_high[100] - df_high$Q_high[1])
+# Calculate quantity at free-market equilibrium
+d_agg_model <- demand_quant(p, D_agg)
 ```
 
+```{r}
+# find supply (MPC) curve equation
+mpc_slope <- 10 / d_agg_model
+# MPC equation: P = 1.86e-5Q
 
+# creates a function for the supply curve
+mpc_curve <- function(q) {
+  p <- mpc_slope * q
+  p <- ifelse(p < 0, 0, p)
+  return(p)
+}
+
+quantity = seq(0, 825000, length.out = 100)
+mpc <- map(quantity, mpc_curve) %>% 
+  unlist()
+
+df_mpc <- tibble(quantity = quantity, price = mpc)
+
+mpc_model <- lm(price ~ quantity, data = df_mpc)
+
+supply_quant <- function(p, model) {
+  q <- (p - model$coefficients[[1]]) / model$coefficients[[2]]
+  q <- ifelse(q < 0, 0, q)
+  return(q)
+}
+```
 
 ```{r}
 # I also define functions for calculating the consumer surplus:
-
 CS <- function(p, model){
-  q <- demand(p, model)
+  q <- demand_quant(p, model)
   cs <- 0.5*(model$coefficients[[1]] - p)*q
   return(cs)
 }
@@ -130,11 +114,42 @@ CS_agg <- function(p){
   cs <- CS(p,model_demand_l) + CS(p,model_demand_h)
   return(cs)
 }
+
+consumer_surplus <- CS_agg(p)
 ```
 
+```{r}
+PS <- function(p, model) {
+  q <- supply_quant(p, model)
+  ps <- 0.5 * (p - model$coefficient[[1]]) * q
+  return(ps)
+}
 
+ps <- function(p) {
+  ps <- PS(p, mpc_model)
+  return(ps)
+}
 
+producer_surplus <- ps(p)
+```
 
+```{r}
+TEC <- kWh_ton_co2 * d_agg_model
+```
+
+```{r}
+ggplot() +
+  geom_line(data = df_agg,
+            aes(x = Qagg, y = price),
+            color = "black") +
+  geom_line(data = df_mpc,
+            aes(x = quantity, y = price),
+            color = "red") +
+  geom_hline(yintercept = kWh_ton_co2,
+             color = "darkgreen")
+```
+
+# Question 3
 
 
 
