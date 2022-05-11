@@ -115,6 +115,7 @@ CS_agg <- function(p){
   return(cs)
 }
 
+# consumer surplus = 5,298,722.41 cents
 consumer_surplus <- CS_agg(p)
 ```
 
@@ -130,10 +131,12 @@ ps <- function(p) {
   return(ps)
 }
 
+# producer surplus = 2,690,612.46 cents
 producer_surplus <- ps(p)
 ```
 
 ```{r}
+# TEC = 1,057,941.50 cents
 TEC <- kWh_ton_co2 * d_agg_model
 ```
 
@@ -151,8 +154,20 @@ ggplot() +
 
 # Question 3
 
+```{r}
+CS_high <- CS(p, model_demand_h)
+CS_low <- CS(p, model_demand_l)
 
+# 84.69% of the consumer surplus benefits the high consumers
+benefit_high <- CS_high / consumer_surplus
+high_perc <- benefit_high * 100
 
+# 15.31% of the consumer surplus benefits the low consumers
+benefit_low <- CS_low / consumer_surplus
+low_perc <- benefit_low * 100
+```
+
+# Question 4
 
 
 
