@@ -285,7 +285,8 @@ true_demand_curve &lt;- function(p)
 mpc_curve &lt;- function(q) {
   p &lt;- mpc_slope * q
   p &lt;- ifelse(p &lt; 0, 0, p)
-  return(p) }
+  return(p) 
+  }
   
 supply_quant &lt;- function(p, model) {
   q &lt;- (p - model$coefficients[[1]]) / model$coefficients[[2]]
@@ -359,8 +360,9 @@ MEC &lt;- (100 * 0.85 * 51) / 2205</code></pre>
 <div id="question-2" class="section level2">
 <h2>Question 2</h2>
 <pre class="r"><code>model_demand_l &lt;- lm(price_cents  ~ q_low_kwh, data=df)
-model_demand_h &lt;- lm(price_cents ~ q_high_kwh, data=df)</code></pre>
-<pre class="r"><code>price = seq(0, 30, length.out = 100)
+model_demand_h &lt;- lm(price_cents ~ q_high_kwh, data=df)
+
+price = seq(0, 30, length.out = 100)
 Qagg &lt;- map(price, demand_agg) %&gt;% 
   unlist()
 Qlow &lt;- map(price, demand_low) %&gt;% 
@@ -378,11 +380,8 @@ p &lt;- 10
 
 # Calculate quantity at free-market equilibrium
 d_agg_model &lt;- demand_quant(p, D_agg)</code></pre>
-<p><span class="math display">\[
-\begin{aligned}
-\operatorname{\widehat{price}} &amp;= 29.78 + 0(\operatorname{Qagg})
-\end{aligned}
-\]</span></p>
+<p><strong>Aggregate Demand Equation:</strong> P = 29.7813463, -3.6759932^{-5}Q + -3.6759932^{-5}</p>
+<p><strong>Free-Market Equilibrium:</strong> (5.3812249^{5}, 10)</p>
 <pre class="r"><code># find supply (MPC) curve equation
 mpc_slope &lt;- 10 / d_agg_model
 # MPC equation: P = 1.86e-5Q
@@ -394,12 +393,18 @@ mpc &lt;- map(quantity, mpc_curve) %&gt;%
 df_mpc &lt;- tibble(quantity = quantity, price = mpc, mec = MEC, msc = (mpc_slope * quantity) + mec)
 
 mpc_model &lt;- lm(price ~ quantity, data = df_mpc)</code></pre>
+<p><strong>Supply Curve Equation:</strong> P = 1.858313^{-5}Q</p>
 <pre class="r"><code># consumer surplus = 5,298,722.41 cents
-consumer_surplus &lt;- CS_agg(p)</code></pre>
-<pre class="r"><code># producer surplus = 2,690,612.46 cents
-producer_surplus &lt;- PS(p, mpc_model)</code></pre>
-<pre class="r"><code># TEC = 1,057,941.50 cents
+consumer_surplus &lt;- CS_agg(p)
+
+# producer surplus = 2,690,612.46 cents
+producer_surplus &lt;- PS(p, mpc_model)
+
+# TEC = 1,057,941.50 cents
 TEC &lt;- MEC * d_agg_model</code></pre>
+<p><strong>Consumer Surplus:</strong> 5.2987224^{6} cents</p>
+<p><strong>Producer Surplus:</strong> 2.6906125^{6} cents</p>
+<p><strong>Total Environmental Cost:</strong> 1.0579415^{6} cents</p>
 <pre class="r"><code>ggplot() +
   geom_line(data = df_agg,
             aes(x = Qagg, y = price),

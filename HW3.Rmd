@@ -304,7 +304,8 @@ d_agg_model <- demand_quant(p, D_agg)
 ```
 
 **Aggregate Demand Equation:** P = `r D_agg$coefficients`Q + `r D_agg$coefficients[2]`
-**Free-Market Equilibrium
+
+**Free-Market Equilibrium:** (`r d_agg_model`, `r p`)
 
 ```{r}
 # find supply (MPC) curve equation
@@ -320,20 +321,24 @@ df_mpc <- tibble(quantity = quantity, price = mpc, mec = MEC, msc = (mpc_slope *
 mpc_model <- lm(price ~ quantity, data = df_mpc)
 ```
 
+**Supply Curve Equation:** P = `r mpc_slope`Q
+
 ```{r}
 # consumer surplus = 5,298,722.41 cents
 consumer_surplus <- CS_agg(p)
-```
 
-```{r}
 # producer surplus = 2,690,612.46 cents
 producer_surplus <- PS(p, mpc_model)
-```
 
-```{r}
 # TEC = 1,057,941.50 cents
 TEC <- MEC * d_agg_model
 ```
+
+**Consumer Surplus:** `r consumer_surplus` cents
+
+**Producer Surplus:** `r producer_surplus` cents
+
+**Total Environmental Cost:** `r TEC` cents
 
 ```{r}
 ggplot() +
