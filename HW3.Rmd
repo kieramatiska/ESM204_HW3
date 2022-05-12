@@ -1,6 +1,6 @@
 ---
-title: "Untitled"
-author: "Kiera Matiska"
+title: "ESM 204 Homework 3"
+author: "Kiera Matiska, Virginia Pan, Devon Rossi"
 date: "5/6/2022"
 output: html_document
 ---
@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
-library(rootSolve)
+#library(rootSolve)
 library(janitor)
 library(tibble)
 ```
@@ -18,14 +18,177 @@ library(tibble)
 df <- read_csv("HW3_data.csv") %>% 
   select(-1) %>% 
   clean_names()
+
+```
+#Define SCC conversion function
+```{r}
+SCC_conversion <- function(SCC_dollars)
+{
+  #given SCC in $, calc and return SCC in cents/kwH
+  SCC <- (100*0.85*SCC_dollars)/2205
+  return(SCC)
+}
 ```
 
-# Important Functions
+
+# Define Demand Functions
+```{r}
+# define a function to get demand
+demand_quant <- function(p, model){
+  q <- (p - model$coefficients[[1]])/model$coefficients[[2]]
+  q <- ifelse(q<0,0,q)
+  return(q) }
+  
+# for each p level, return estimated aggregate demand
+demand_agg <- function(p){
+  q <- demand_quant(p, model_demand_l) + demand_quant(p, model_demand_h)
+  return(q)
+}
+
+demand_low <- function(p) {
+  q <- demand_quant(p, model_demand_l)
+  return(q)
+}
+
+demand_high <- function(p) {
+  q <- demand_quant(p, model_demand_h)
+  return(q) }
+  
+# function for d_agg equation after kink (to find price)
+D_agg_fun <- function(q) {
+  p <- (D_agg$coefficients[[2]] * q) + D_agg$coefficients[[1]]
+  return(p)
+}
+
+```
 
 ```{r}
+# Linear model Intercept function
+lmIntx <- function(fit1, fit2) {
+  b1<- fit1$coefficient[1]  #y-int for fit1
+  m1<- fit1$coefficient[2]  #slope for fit1
+  b2<- fit2$coefficient[1]  #y-int for fit2
+  m2<- fit2$coefficient[2]  #slope for fit2
+  if(m1==m2 & b1==b2) {print("Lines are identical")
+  } else if(m1==m2 & b1 != b2) {print("Lines are parallel")
+  } else {
+    x <- (b2-b1)/(m1-m2)      #solved general equation for x
+    y <- m1*x + b1            #plug in the result
+    ordered_pair <- c(x,y)
+    return(ordered_pair)
+  }
+}
+
+true_demand_curve <- function(p)
+{
+  if(p > model_demand_l$coefficients[1])
+  {
+    q <-demand_quant(p, model_demand_h)
+  }
+  if(p <= model_demand_l$coefficients[1])
+  {
+    q <- demand_quant(p, D_agg)
+  }
+  return(q)
+}
+  
+```
+
+```{r}
+demand_agg_full_eq <- function(SCC)
+{
+  MSC <- MSC_eq(SCC)
+  intersect_high <- lmIntx(MSC,model_demand_h)
+  intersect_agg <- lmIntx(MSC, D_agg)
+  #check which intersection is correct
+  q_option1 <- true_demand_curve(intersect_high[2])
+  q_option2 <- true_demand_curve((intersect_agg[2]))
+  if(signif(q_option1,3) == signif(intersect_high[1],3))
+  {
+    eq_p_q <- intersect_high
+  }
+  else if(signif(q_option2,3) == signif(intersect_agg[1],3))
+  {
+    eq_p_q <- intersect_agg
+  }
+  return(eq_p_q)
+}
+```
+
+```{r}
+demand_agg_full_eq(MEC)
+```
+
+#Define Supply Functions 
+```{r}
+# creates a function for the supply curve
+mpc_curve <- function(q) {
+  p <- mpc_slope * q
+  p <- ifelse(p < 0, 0, p)
+  return(p) }
+  
+supply_quant <- function(p, model) {
+  q <- (p - model$coefficients[[1]]) / model$coefficients[[2]]
+  q <- ifelse(q < 0, 0, q)
+  return(q) }
+  
+# find MSC function for price
+MSC_fun <- function(q) {
+  p <- mpc_slope * q + MEC
+  return(p)
+}
+
+MSC_eq <- function(MEC)
+{
+  MSC <- mpc_model
+  MSC$coefficients[1] <- MSC$coefficients[1] + MEC
+  return(MSC)
+}
+```
+
+# Define consumer and producer surplus functions
+```{r}
+# I also define functions for calculating the consumer surplus:
+CS <- function(p, model){
+  q <- demand_quant(p, model)
+  cs <- 0.5*(model$coefficients[[1]] - p)*q
+  return(cs)
+}
+
+CS_agg <- function(p){
+  cs <- CS(p,model_demand_l) + CS(p,model_demand_h)
+  return(cs)
+}
+
+CS_high <- function(p){
+  cs <- CS(p, model_demand_h)
+  return(cs)
+}
+
+CS_low <- function(p){
+  cs <- CS(p, model_demand_l)
+  return(cs)
+}
+
+PS <- function(p, model) {
+  q <- supply_quant(p, model)
+  ps <- 0.5 * (p - model$coefficient[[1]]) * q
+  return(ps)
+}
+
+# ps <- function(p) {
+#   ps <- PS(p, mpc_model)
+#   return(ps)
 
 ```
 
+#Define tax functions 
+```{r}
+tax_rev <- function(q, MEC) {
+  area <- MEC * q
+  return(area)
+}
+```
 # Question 1
 
 ```{r}
@@ -49,32 +212,8 @@ model_demand_h <- lm(price_cents ~ q_high_kwh, data=df)
 # Importantly, since they-intercepts are different, we know that Qagg(P) will have a kink. I include an ifelse() statement to take
 # care of the kink.
 
-# define a function to get demand
-
-demand_quant <- function(p, model){
-  q <- (p - model$coefficients[[1]])/model$coefficients[[2]]
-  q <- ifelse(q<0,0,q)
-  return(q)
-}
 ```
 
-```{r}
-# for each p level, return estimated aggregate demand
-demand_agg <- function(p){
-  q <- demand_quant(p, model_demand_l) + demand_quant(p, model_demand_h)
-  return(q)
-}
-
-demand_low <- function(p) {
-  q <- demand_quant(p, model_demand_l)
-  return(q)
-}
-
-demand_high <- function(p) {
-  q <- demand_quant(p, model_demand_h)
-  return(q)
-}
-```
 
 ```{r}
 price = seq(0, 30, length.out = 100)
@@ -93,11 +232,6 @@ df_low <- tibble(Q_low = Qlow, price = price, mec = MEC)
 D_agg <- lm(price ~ Qagg, data = df_agg)
 p <- 10
 
-# function for d_agg equation after kink (to find price)
-D_agg_fun <- function(q) {
-  p <- (D_agg$coefficients[[2]] * q) + D_agg$coefficients[[1]]
-  return(p)
-}
 
 # Calculate quantity at free-market equilibrium
 d_agg_model <- demand_quant(p, D_agg)
@@ -108,12 +242,6 @@ d_agg_model <- demand_quant(p, D_agg)
 mpc_slope <- 10 / d_agg_model
 # MPC equation: P = 1.86e-5Q
 
-# creates a function for the supply curve
-mpc_curve <- function(q) {
-  p <- mpc_slope * q
-  p <- ifelse(p < 0, 0, p)
-  return(p)
-}
 
 quantity = seq(0, 825000, length.out = 100)
 mpc <- map(quantity, mpc_curve) %>% 
@@ -123,44 +251,17 @@ df_mpc <- tibble(quantity = quantity, price = mpc, mec = MEC, msc = (mpc_slope *
 
 mpc_model <- lm(price ~ quantity, data = df_mpc)
 
-supply_quant <- function(p, model) {
-  q <- (p - model$coefficients[[1]]) / model$coefficients[[2]]
-  q <- ifelse(q < 0, 0, q)
-  return(q)
-}
 ```
 
 ```{r}
-# I also define functions for calculating the consumer surplus:
-CS <- function(p, model){
-  q <- demand_quant(p, model)
-  cs <- 0.5*(model$coefficients[[1]] - p)*q
-  return(cs)
-}
-
-CS_agg <- function(p){
-  cs <- CS(p,model_demand_l) + CS(p,model_demand_h)
-  return(cs)
-}
-
 # consumer surplus = 5,298,722.41 cents
 consumer_surplus <- CS_agg(p)
 ```
 
 ```{r}
-PS <- function(p, model) {
-  q <- supply_quant(p, model)
-  ps <- 0.5 * (p - model$coefficient[[1]]) * q
-  return(ps)
-}
-
-ps <- function(p) {
-  ps <- PS(p, mpc_model)
-  return(ps)
-}
 
 # producer surplus = 2,690,612.46 cents
-producer_surplus <- ps(p)
+producer_surplus <- PS(p, mpc_model)
 ```
 
 ```{r}
@@ -192,30 +293,23 @@ ggplot() +
 # Question 3
 
 ```{r}
-CS_high <- CS(p, model_demand_h)
-CS_low <- CS(p, model_demand_l)
+CS_high_val <- CS(p, model_demand_h)
+CS_low_val <- CS(p, model_demand_l)
 
 # 84.69% of the consumer surplus benefits the high consumers
-benefit_high <- CS_high / consumer_surplus
+benefit_high <- CS_high_val / consumer_surplus
 high_perc <- benefit_high * 100
 
 # 15.31% of the consumer surplus benefits the low consumers
-benefit_low <- CS_low / consumer_surplus
+benefit_low <- CS_low_val / consumer_surplus
 low_perc <- benefit_low * 100
 ```
 
 # Question 4
 
-Make a function for high demand line
-
 ```{r}
 # optimal electricity tax = 1.97 cents
 
-# find MSC function for price
-MSC_fun <- function(q) {
-  p <- mpc_slope * q + MEC
-  return(p)
-}
 
 # Equation of MSC: p = 1.86e-5Q + 1.97
 MSC <- lm(msc ~ quantity, data = df_mpc)
@@ -226,15 +320,7 @@ q_tilde <- (D_agg$coefficients[1] - MSC$coefficients[1]) / (MSC$coefficients[2] 
 # p-tilde = 11.3 cents
 p_tilde <- MSC_fun(q_tilde)
 
-CS_high <- function(p){
-  cs <- CS(p, model_demand_h)
-  return(cs)
-}
 
-CS_low <- function(p){
-  cs <- CS(p, model_demand_l)
-  return(cs)
-}
 
 # CS with tax is 4,621,978. Welfare decreases with tax.
 cs_w_tax <- CS_agg(p_tilde)
@@ -248,18 +334,13 @@ cs_low_w_tax <- CS_low(p_tilde)
 p_tau <- p_tilde - MEC
 
 # PS with tax is 2,347,101. Welfare decreases with tax.
-ps_w_tax <- ps(p_tau)
-
-tax_rev <- function(q) {
-  area <- MEC * q
-  return(area)
-}
+ps_w_tax <- ps(p_tau) #change, eliminated ps function, need PS(p_tau, msc)
 
 # total environmental damage is 988,103
-TED <- tax_rev(q_tilde)
+TED <- tax_rev(q_tilde, MEC)
 
 # total environmental damage is 988,103
-tot_rev <- tax_rev(q_tilde)
+tot_rev <- tax_rev(q_tilde, MEC)
 ```
 
 
