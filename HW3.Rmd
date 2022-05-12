@@ -7,14 +7,15 @@ output:
     code_folding: hide
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=FALSE, echo=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, include = FALSE, warning = FALSE)
 
 library(tidyverse)
 #library(rootSolve)
 library(janitor)
 library(tibble)
 library(equatiomatic)
+library(kableExtra)
 ```
 
 ```{r}
@@ -22,6 +23,15 @@ df <- read_csv("HW3_data.csv") %>%
   select(-1) %>% 
   clean_names()
 
+```
+
+```{r}
+SCC_conversion <- function(SCC_dollars)
+{
+  #given SCC in $, calc and return SCC in cents/kwH
+  SCC <- (100*0.85*SCC_dollars)/2205
+  return(SCC)
+}
 ```
 
 ```{r}
@@ -53,82 +63,6 @@ demand_high <- function(p) {
   return(q) }
 ```
 
-# Question 1
-
-```{r}
-# 2205 pounds = 1 ton
-# $1 = 100 cents
-MEC <- (100 * 0.85 * 51) / 2205
-```
-
-# Question 2
-
-```{r}
-model_demand_l <- lm(price_cents  ~ q_low_kwh, data=df)
-model_demand_h <- lm(price_cents ~ q_high_kwh, data=df)
-```
-
-```{r}
-# need to rearrange the parameter to get Q(P)! 
-
-# Qgg = Qlow(P) + Qlow(h) 
-
-# Importantly, since they-intercepts are different, we know that Qagg(P) will have a kink. I include an ifelse() statement to take
-# care of the kink.
-
-```
-
-
-```{r}
-price = seq(0, 30, length.out = 100)
-Qagg <- map(price, demand_agg) %>% 
-  unlist()
-Qlow <- map(price, demand_low) %>% 
-  unlist()
-Qhigh <- map(price, demand_high) %>% 
-  unlist()
-
-df_agg <- tibble(Qagg = Qagg, price = price, mec = MEC)
-df_high <- tibble(Q_high = Qhigh, price = price, mec = MEC)
-df_low <- tibble(Q_low = Qlow, price = price, mec = MEC)
-
-# Demand Aggregate equation: P = -3.68e-5Q + 29.78
-D_agg <- lm(price ~ Qagg, data = df_agg)
-p <- 10
-
-
-# Calculate quantity at free-market equilibrium
-d_agg_model <- demand_quant(p, D_agg)
-```
-
-```{r}
-# find supply (MPC) curve equation
-mpc_slope <- 10 / d_agg_model
-# MPC equation: P = 1.86e-5Q
-
-
-quantity = seq(0, 825000, length.out = 100)
-mpc <- map(quantity, mpc_curve) %>% 
-  unlist()
-
-df_mpc <- tibble(quantity = quantity, price = mpc, mec = MEC, msc = (mpc_slope * quantity) + mec)
-
-mpc_model <- lm(price ~ quantity, data = df_mpc)
-
-```
-
-#Define SCC conversion function
-
-```{r}
-SCC_conversion <- function(SCC_dollars)
-{
-  #given SCC in $, calc and return SCC in cents/kwH
-  SCC <- (100*0.85*SCC_dollars)/2205
-  return(SCC)
-}
-```
-
-# Define Demand Functions
 
 ```{r}
   
@@ -140,13 +74,7 @@ D_agg_fun <- function(q) {
 
 ```
 
-```{r}
-MSC_eq <- function(MEC){
-  MSC <- mpc_model
-  MSC$coefficients[1] <- MSC$coefficients[1] + MEC
-  return(MSC)
-}
-```
+
 
 ```{r}
 # Linear model Intercept function
@@ -180,32 +108,6 @@ true_demand_curve <- function(p)
   
 ```
 
-```{r}
-demand_agg_full_eq <- function(SCC)
-{
-  MSC <- MSC_eq(SCC)
-  intersect_high <- lmIntx(MSC,model_demand_h)
-  intersect_agg <- lmIntx(MSC, D_agg)
-  #check which intersection is correct
-  q_option1 <- true_demand_curve(intersect_high[2])
-  q_option2 <- true_demand_curve((intersect_agg[2]))
-  if(signif(q_option1,3) == signif(intersect_high[1],3))
-  {
-    eq_p_q <- intersect_high
-  }
-  else if(signif(q_option2,3) == signif(intersect_agg[1],3))
-  {
-    eq_p_q <- intersect_agg
-  }
-  return(eq_p_q)
-}
-```
-
-```{r}
-demand_agg_full_eq(MEC)
-```
-
-#Define Supply Functions 
 
 ```{r}
 # creates a function for the supply curve
@@ -228,7 +130,6 @@ MSC_fun <- function(q) {
 
 ```
 
-# Define consumer and producer surplus functions
 
 ```{r}
 # I also define functions for calculating the consumer surplus:
@@ -265,115 +166,6 @@ PS <- function(p, model) {
 
 ```
 
-#Define tax functions 
-
-```{r}
-tax_rev <- function(q, MEC) {
-  area <- MEC * q
-  return(area)
-}
-```
-
-```{r}
-tax_rebate <- function(q, MEC, demand_ratio) {
-  tax_reb <- demand_ratio * MEC * q
-  return(tax_reb)
-}
-```
-
-```{r}
-welfare_h <- function(SCC) {
-  eq_p_q <- demand_agg_full_eq(SCC)
-  welfare_h <- CS(eq_p_q[2])
-}
-```
-
-```{r}
-env_damage_fun <- function(q, SCC) {
-  env_damage <- q * SCC 
-}
-
-welfare_l <- function(SCC)
-{
-  eq_p_q <- demand_agg_full_eq(SCC)
-  welfare_l<-CS(eq_p_q[2]) + tax_rebate(low_ratio, SCC, eq_p_q[1]) - env_damage_fun(eq_p_q, SCC)
-}
-
-producer_welfare <- function(SCC) {
-  MSC <- MSC_fun(SCC) 
-  eq_p_q <- demand_agg_full_eq(SCC)
-  p_tau <- eq_p_q[2] - SCC
-  producer_wel <- PS(p_tau, MSC)
-  return(producer_wel)
-}
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -387,7 +179,7 @@ producer_welfare <- function(SCC) {
 MEC <- (100 * 0.85 * 51) / 2205
 ```
 
-The marginal external cost value is `r MEC` cents.
+The marginal external cost value is `r MEC` cents/kWh.
 
 ## Question 2
 
@@ -415,6 +207,23 @@ p <- 10
 d_agg_model <- demand_quant(p, D_agg)
 ```
 
+```{r}
+qh_star <- demand_quant(10, model_demand_h)
+ql_star <- demand_quant(10, model_demand_l)
+qagg_star <- qh_star + ql_star
+
+high_ratio <- qh_star/qagg_star
+low_ratio <- ql_star/qagg_star
+```
+
+
+```{r}
+tax_rebate <- function(demand_ratio, SCC, q) {
+  tax_reb <- demand_ratio*SCC*q
+  return(tax_reb)
+}
+```
+
 **Aggregate Demand Equation:** P = `r D_agg$coefficients`Q + `r D_agg$coefficients[2]`
 
 **Free-Market Equilibrium:** (`r d_agg_model`, `r p`)
@@ -432,6 +241,87 @@ df_mpc <- tibble(quantity = quantity, price = mpc, mec = MEC, msc = (mpc_slope *
 
 mpc_model <- lm(price ~ quantity, data = df_mpc)
 ```
+
+
+```{r}
+MSC_eq <- function(MEC){
+  MSC <- mpc_model
+  MSC$coefficients[1] <- MSC$coefficients[1] + MEC
+  return(MSC)
+}
+```
+
+```{r}
+demand_agg_full_eq <- function(SCC)
+{
+  MSC <- MSC_eq(SCC)
+  intersect_high <- lmIntx(MSC,model_demand_h)
+  intersect_agg <- lmIntx(MSC, D_agg)
+  #check which intersection is correct
+  q_option1 <- true_demand_curve(intersect_high[2])
+  q_option2 <- true_demand_curve((intersect_agg[2]))
+  if(signif(q_option1,3) == signif(intersect_high[1],3))
+  {
+    eq_p_q <- intersect_high
+  }
+  else if(signif(q_option2,3) == signif(intersect_agg[1],3))
+  {
+    eq_p_q <- intersect_agg
+  }
+  return(eq_p_q)
+}
+```
+
+```{r}
+tax_rev <- function(q, SCC) {
+  area <- SCC*q
+  return(area)
+}
+```
+
+```{r}
+welfare_h <- function(SCC) {
+  eq_p_q <- demand_agg_full_eq(SCC)
+  welfare_h <- CS(eq_p_q[2],model_demand_h) +tax_rebate(high_ratio, SCC,eq_p_q[1])
+}
+```
+
+```{r}
+env_damage_fun <- function(q, SCC) {
+  env_damage <- q*SCC 
+  return(env_damage)
+}
+
+welfare_l <- function(SCC)
+{
+  eq_p_q <- demand_agg_full_eq(SCC)
+  welfare_l<-CS(eq_p_q[2],model_demand_l) + tax_rebate(low_ratio, SCC, eq_p_q[1]) - env_damage_fun(eq_p_q[1], SCC)
+}
+
+welfare_p <- function(SCC) {
+  MSC_func <- MSC_eq(SCC) 
+  eq_p_q <- demand_agg_full_eq(SCC)
+  p_tau <- eq_p_q[2] - SCC
+  producer_wel <- PS(p_tau, MSC_func)
+  return(producer_wel)
+}
+```
+
+```{r}
+question_5 <- function(SCC_dollars) {
+   SCC <- SCC_conversion(SCC_dollars)
+   welfare_high <- welfare_h(SCC)
+   welfare_low <- welfare_l(SCC)
+   welfare_producer <- welfare_p(SCC)
+   welfares <- c(welfare_high, welfare_low, welfare_producer)
+   return(welfares)
+
+  
+}
+ 
+
+```
+
 
 **Supply Curve Equation:** P = `r mpc_slope`Q
 
@@ -513,7 +403,7 @@ cs_w_tax <- CS_agg(p_tilde)
 cs_high_w_tax <- CS_high(p_tilde)
 
 # CS for low income consumers is 660,524. Welfare decreased with tax.
-cs_low_w_tax <- CS_low(p_tilde)
+cs_low_w_tax <- CS_low(p_tilde) -env_damage_fun(q_tilde,SCC_conversion(51))
 
 p_tau <- p_tilde - MEC
 
@@ -533,23 +423,75 @@ With the social optimal tax:
 - **The price of electricity:** `r p_tilde`cents
 - **Overall welfare for "high" income consumers:** `r cs_high_w_tax` cents
 - **Overall welfare for "low" income consumers:** `r cs_low_w_tax` cents
-- **Power Suppliers:** `r ps_w_tax`
-- **Total Environmental Damage:** `r TED`
-- **Total Tax Revenue Generated:** `r tot_rev`
+- **Power Suppliers:** `r ps_w_tax` cents
+- **Total Environmental Damage:** `r TED` cents
+- **Total Tax Revenue Generated:** `r tot_rev` cents
 
 ## Question 5
 
+
 ```{r}
 
-```
+Q5_51 <- question_5(51)
+Q5_75 <- question_5(75)
+Q5_100 <- question_5(100)
+Q5_125 <- question_5(125)
+Q5_150 <- question_5(150)
 
+```
+The welfare to high income consumers, welfare to low income consumers, and welfare to electricity producers (all in cents) is presented below for SCC values of 51, 75, 100, 125, and 150 dollars. 
+
+- 51 dollars: `r Q5_51` cents
+
+- 75 dollars: `r Q5_75` cents
+
+- 100 dollars: `r Q5_100` cents
+
+- 125 dollars: `r Q5_125` cents
+
+- 150 dollars: `r Q5_150` cents
 
 ## Question 6
 
 ```{r}
+  #attempt to find solar aggregate demand curve
+
+  #new aggregate demand curve
+  #high demand curve has same slope and 1/2 y intercept
+  #low demand curve is the same
+  #aggregate demand curve is high_demand_solar + low_demand
+D_agg_solar <- D_agg
+D_agg_solar$coefficients[1]  <- ((model_demand_l$coefficients[1]/model_demand_l$coefficients[2])+((model_demand_h$coefficients[1])/2)/model_demand_h$coefficients[2])
+D_agg_solar$coefficients[2] <-
+  1/((1/model_demand_l$coefficients[2])+(1/model_demand_h$coefficients[2]))
+
+#find intersect between D_agg_solar and supply curve
+eq_p_q_solar <- lmIntx(D_agg_solar,mpc_model)
+
+
+#intersection of aggregate demand curve and MPC curve is negative, we know this doesn't make sense. Please see approach outlined below. :')
 
 ```
 
+Did not have time to code question 6, but this is what we would do: 
 
-# End of homework 3
+6a. 
+  Calculate new aggregate demand curve! 
+  The high demand curve with solar has same slope as before and 1/2 y intercept as before. 
+  The low demand curve is the same. 
+  The solar aggregate demand curve = high_demand_solar + low_demand
+  Find the intersect between the solar aggregate demand curve and MPC curve. 
+  This will tell you the new total electricity consumption and price.
+  
+6b. 
+  The total environmental damage will be the MEC (based on the current $51 SCC) * the new equilibrium quantity of electricity produced. 
+  
+6c. 
+  The value of the electricity tax that makes the total environmental damage the same as the damage when solar panels are available to the high income group  can be determined by trying different tax values and to determine which gives an environmental damage (eq Q * tax) closest to that determined 6b. This tax value will likely be lower than the 51 dollar social cost of carbon. 
+  
+  Visualizing the increase in the SCC graphically results in greater environmental damage. It is important to note that this value is representative of the "weight" in which environmental costs are assigned - so a higher SCC results in greater environmental damage, while a lower SCC is reflective of "lower" environmental damage. 
+  
+  
+# [Thank you! Peace be with you!](https://www.youtube.com/watch?v=8gyTxsQjdaQ)
+*left click, and open link in browser for quick meditation*
 
