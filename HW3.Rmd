@@ -467,6 +467,10 @@ benefit_low <- CS_low_val / consumer_surplus
 low_perc <- benefit_low * 100
 ```
 
+**Total Consumer Surplus:** `r consumer_surplus` cents
+
+The high income consumers receive `r round(high_perc, 2)`% and the low income consumers receive `r round(low_perc, 2)`% of the total consumer surplus.
+
 ## Question 4
 
 ```{r}
@@ -493,7 +497,7 @@ cs_low_w_tax <- CS_low(p_tilde)
 p_tau <- p_tilde - MEC
 
 # PS with tax is 2,347,101. Welfare decreases with tax.
-ps_w_tax <- ps(p_tau) #change, eliminated ps function, need PS(p_tau, msc)
+ps_w_tax <- PS(p_tau, MSC_eq(SCC_conversion(51))) #change, eliminated ps function, need PS(p_tau, msc)
 
 # total environmental damage is 988,103
 TED <- tax_rev(q_tilde, MEC)
@@ -502,7 +506,29 @@ TED <- tax_rev(q_tilde, MEC)
 tot_rev <- tax_rev(q_tilde, MEC)
 ```
 
+With the social optimal tax:
+
+- **The amount of electricity produced and consumed:** `r q_tilde` kWh
+- **The price of electricity:** `r p_tilde`cents
+- **Overall welfare for "high" income consumers:** `r cs_high_w_tax` cents
+- **Overall welfare for "low" income consumers:** `r cs_low_w_tax` cents
+- **Power Suppliers:** `r ps_w_tax`
+- **Total Environmental Damage:** `r TED`
+- **Total Tax Revenue Generated:** `r tot_rev`
+
+## Question 5
+
+```{r}
+
+```
 
 
+## Question 6
 
+```{r}
+
+```
+
+
+# End of homework 3
 
