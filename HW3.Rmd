@@ -20,7 +20,9 @@ df <- read_csv("HW3_data.csv") %>%
   clean_names()
 
 ```
+
 #Define SCC conversion function
+
 ```{r}
 SCC_conversion <- function(SCC_dollars)
 {
@@ -30,8 +32,8 @@ SCC_conversion <- function(SCC_dollars)
 }
 ```
 
-
 # Define Demand Functions
+
 ```{r}
 # define a function to get demand
 demand_quant <- function(p, model){
@@ -120,6 +122,7 @@ demand_agg_full_eq(MEC)
 ```
 
 #Define Supply Functions 
+
 ```{r}
 # creates a function for the supply curve
 mpc_curve <- function(q) {
@@ -147,6 +150,7 @@ MSC_eq <- function(MEC)
 ```
 
 # Define consumer and producer surplus functions
+
 ```{r}
 # I also define functions for calculating the consumer surplus:
 CS <- function(p, model){
@@ -183,12 +187,84 @@ PS <- function(p, model) {
 ```
 
 #Define tax functions 
+
 ```{r}
 tax_rev <- function(q, MEC) {
   area <- MEC * q
   return(area)
 }
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Question 1
 
 ```{r}
@@ -310,7 +386,6 @@ low_perc <- benefit_low * 100
 ```{r}
 # optimal electricity tax = 1.97 cents
 
-
 # Equation of MSC: p = 1.86e-5Q + 1.97
 MSC <- lm(msc ~ quantity, data = df_mpc)
 
@@ -319,8 +394,6 @@ q_tilde <- (D_agg$coefficients[1] - MSC$coefficients[1]) / (MSC$coefficients[2] 
 
 # p-tilde = 11.3 cents
 p_tilde <- MSC_fun(q_tilde)
-
-
 
 # CS with tax is 4,621,978. Welfare decreases with tax.
 cs_w_tax <- CS_agg(p_tilde)
