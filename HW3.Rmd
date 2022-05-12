@@ -288,6 +288,27 @@ welfare_h <- function(SCC) {
 }
 ```
 
+```{r}
+env_damage_fun <- function(q, SCC) {
+  env_damage <- q * SCC 
+}
+
+welfare_l <- function(SCC)
+{
+  eq_p_q <- demand_agg_full_eq(SCC)
+  welfare_l<-CS(eq_p_q[2]) + tax_rebate(low_ratio, SCC, eq_p_q[1]) - env_damage_fun(eq_p_q, SCC)
+}
+
+producer_welfare <- function(SCC) {
+  MSC <- MSC_fun(SCC) 
+  eq_p_q <- demand_agg_full_eq(SCC)
+  p_tau <- eq_p_q[2] - SCC
+  producer_wel <- PS(p_tau, MSC)
+  return(producer_wel)
+}
+```
+
+
 
 
 

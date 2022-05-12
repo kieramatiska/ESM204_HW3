@@ -1,8 +1,10 @@
 ---
-title: "ESM 204 Homework 3 DRAFT"
+title: "ESM 204 Homework 3"
 author: "Kiera Matiska, Virginia Pan, Devon Rossi"
 date: "5/6/2022"
-output: html_document
+output:
+   html_document: 
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -12,6 +14,7 @@ library(tidyverse)
 #library(rootSolve)
 library(janitor)
 library(tibble)
+library(equatiomatic)
 ```
 
 ```{r}
@@ -27,6 +30,27 @@ mpc_curve <- function(q) {
   p <- mpc_slope * q
   p <- ifelse(p < 0, 0, p)
   return(p) }
+
+# define a function to get demand
+demand_quant <- function(p, model){
+  q <- (p - model$coefficients[[1]])/model$coefficients[[2]]
+  q <- ifelse(q<0,0,q)
+  return(q) }
+
+# for each p level, return estimated aggregate demand
+demand_agg <- function(p){
+  q <- demand_quant(p, model_demand_l) + demand_quant(p, model_demand_h)
+  return(q)
+}
+
+demand_low <- function(p) {
+  q <- demand_quant(p, model_demand_l)
+  return(q)
+}
+
+demand_high <- function(p) {
+  q <- demand_quant(p, model_demand_h)
+  return(q) }
 ```
 
 # Question 1
@@ -107,26 +131,6 @@ SCC_conversion <- function(SCC_dollars)
 # Define Demand Functions
 
 ```{r}
-# define a function to get demand
-demand_quant <- function(p, model){
-  q <- (p - model$coefficients[[1]])/model$coefficients[[2]]
-  q <- ifelse(q<0,0,q)
-  return(q) }
-  
-# for each p level, return estimated aggregate demand
-demand_agg <- function(p){
-  q <- demand_quant(p, model_demand_l) + demand_quant(p, model_demand_h)
-  return(q)
-}
-
-demand_low <- function(p) {
-  q <- demand_quant(p, model_demand_l)
-  return(q)
-}
-
-demand_high <- function(p) {
-  q <- demand_quant(p, model_demand_h)
-  return(q) }
   
 # function for d_agg equation after kink (to find price)
 D_agg_fun <- function(q) {
@@ -284,8 +288,25 @@ welfare_h <- function(SCC) {
 }
 ```
 
+```{r}
+env_damage_fun <- function(q, SCC) {
+  env_damage <- q * SCC 
+}
 
+welfare_l <- function(SCC)
+{
+  eq_p_q <- demand_agg_full_eq(SCC)
+  welfare_l<-CS(eq_p_q[2]) + tax_rebate(low_ratio, SCC, eq_p_q[1]) - env_damage_fun(eq_p_q, SCC)
+}
 
+producer_welfare <- function(SCC) {
+  MSC <- MSC_fun(SCC) 
+  eq_p_q <- demand_agg_full_eq(SCC)
+  p_tau <- eq_p_q[2] - SCC
+  producer_wel <- PS(p_tau, MSC)
+  return(producer_wel)
+}
+```
 
 
 
@@ -353,7 +374,12 @@ welfare_h <- function(SCC) {
 
 
 
-# Question 1
+
+
+
+# Questions {.tabset .tabset-fade}
+
+## Question 1
 
 ```{r}
 # 2205 pounds = 1 ton
@@ -361,25 +387,14 @@ welfare_h <- function(SCC) {
 MEC <- (100 * 0.85 * 51) / 2205
 ```
 
-# Question 2
+The marginal external cost value is `r MEC` cents.
+
+## Question 2
 
 ```{r}
 model_demand_l <- lm(price_cents  ~ q_low_kwh, data=df)
 model_demand_h <- lm(price_cents ~ q_high_kwh, data=df)
-```
 
-```{r}
-# need to rearrange the parameter to get Q(P)! 
-
-# Qgg = Qlow(P) + Qlow(h) 
-
-# Importantly, since they-intercepts are different, we know that Qagg(P) will have a kink. I include an ifelse() statement to take
-# care of the kink.
-
-```
-
-
-```{r}
 price = seq(0, 30, length.out = 100)
 Qagg <- map(price, demand_agg) %>% 
   unlist()
@@ -396,16 +411,18 @@ df_low <- tibble(Q_low = Qlow, price = price, mec = MEC)
 D_agg <- lm(price ~ Qagg, data = df_agg)
 p <- 10
 
-
 # Calculate quantity at free-market equilibrium
 d_agg_model <- demand_quant(p, D_agg)
 ```
+
+**Aggregate Demand Equation:** P = `r D_agg$coefficients`Q + `r D_agg$coefficients[2]`
+
+**Free-Market Equilibrium:** (`r d_agg_model`, `r p`)
 
 ```{r}
 # find supply (MPC) curve equation
 mpc_slope <- 10 / d_agg_model
 # MPC equation: P = 1.86e-5Q
-
 
 quantity = seq(0, 825000, length.out = 100)
 mpc <- map(quantity, mpc_curve) %>% 
@@ -414,24 +431,26 @@ mpc <- map(quantity, mpc_curve) %>%
 df_mpc <- tibble(quantity = quantity, price = mpc, mec = MEC, msc = (mpc_slope * quantity) + mec)
 
 mpc_model <- lm(price ~ quantity, data = df_mpc)
-
 ```
+
+**Supply Curve Equation:** P = `r mpc_slope`Q
 
 ```{r}
 # consumer surplus = 5,298,722.41 cents
 consumer_surplus <- CS_agg(p)
-```
-
-```{r}
 
 # producer surplus = 2,690,612.46 cents
 producer_surplus <- PS(p, mpc_model)
-```
 
-```{r}
 # TEC = 1,057,941.50 cents
 TEC <- MEC * d_agg_model
 ```
+
+**Consumer Surplus:** `r consumer_surplus` cents
+
+**Producer Surplus:** `r producer_surplus` cents
+
+**Total Environmental Cost:** `r TEC` cents
 
 ```{r}
 ggplot() +
@@ -454,7 +473,7 @@ ggplot() +
             color = "maroon")
 ```
 
-# Question 3
+## Question 3
 
 ```{r}
 CS_high_val <- CS(p, model_demand_h)
@@ -469,7 +488,7 @@ benefit_low <- CS_low_val / consumer_surplus
 low_perc <- benefit_low * 100
 ```
 
-# Question 4
+## Question 4
 
 ```{r}
 # optimal electricity tax = 1.97 cents
@@ -495,7 +514,7 @@ cs_low_w_tax <- CS_low(p_tilde)
 p_tau <- p_tilde - MEC
 
 # PS with tax is 2,347,101. Welfare decreases with tax.
-ps_w_tax <- PS(p_tau, MSC_eq(SCC_conversion(51))) #change, eliminated ps function, need PS(p_tau, msc)
+ps_w_tax <- ps(p_tau) #change, eliminated ps function, need PS(p_tau, msc)
 
 # total environmental damage is 988,103
 TED <- tax_rev(q_tilde, MEC)
