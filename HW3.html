@@ -195,22 +195,18 @@ pre code {
 ## 
 ## ℹ Use `spec()` to retrieve the full column specification for this data.
 ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
-<div id="define-scc-conversion-function" class="section level1">
-<h1>Define SCC conversion function</h1>
-<pre class="r"><code>SCC_conversion &lt;- function(SCC_dollars) {
-  #given SCC in $, calc and return SCC in cents/kwH
-  SCC &lt;- (100 * 0.85 * SCC_dollars)/2205
-  return(SCC)
-}</code></pre>
-</div>
-<div id="define-demand-functions" class="section level1">
-<h1>Define Demand Functions</h1>
-<pre class="r"><code># define a function to get demand
+<pre class="r"><code># creates a function for the supply curve
+mpc_curve &lt;- function(q) {
+  p &lt;- mpc_slope * q
+  p &lt;- ifelse(p &lt; 0, 0, p)
+  return(p) }
+
+# define a function to get demand
 demand_quant &lt;- function(p, model){
   q &lt;- (p - model$coefficients[[1]])/model$coefficients[[2]]
   q &lt;- ifelse(q&lt;0,0,q)
   return(q) }
-  
+
 # for each p level, return estimated aggregate demand
 demand_agg &lt;- function(p){
   q &lt;- demand_quant(p, model_demand_l) + demand_quant(p, model_demand_h)
@@ -224,12 +220,73 @@ demand_low &lt;- function(p) {
 
 demand_high &lt;- function(p) {
   q &lt;- demand_quant(p, model_demand_h)
-  return(q) }
-  
-# function for d_agg equation after kink (to find price)
+  return(q) }</code></pre>
+<div id="question-1" class="section level1">
+<h1>Question 1</h1>
+<pre class="r"><code># 2205 pounds = 1 ton
+# $1 = 100 cents
+MEC &lt;- (100 * 0.85 * 51) / 2205</code></pre>
+</div>
+<div id="question-2" class="section level1">
+<h1>Question 2</h1>
+<pre class="r"><code>model_demand_l &lt;- lm(price_cents  ~ q_low_kwh, data=df)
+model_demand_h &lt;- lm(price_cents ~ q_high_kwh, data=df)</code></pre>
+<pre class="r"><code># need to rearrange the parameter to get Q(P)! 
+
+# Qgg = Qlow(P) + Qlow(h) 
+
+# Importantly, since they-intercepts are different, we know that Qagg(P) will have a kink. I include an ifelse() statement to take
+# care of the kink.</code></pre>
+<pre class="r"><code>price = seq(0, 30, length.out = 100)
+Qagg &lt;- map(price, demand_agg) %&gt;% 
+  unlist()
+Qlow &lt;- map(price, demand_low) %&gt;% 
+  unlist()
+Qhigh &lt;- map(price, demand_high) %&gt;% 
+  unlist()
+
+df_agg &lt;- tibble(Qagg = Qagg, price = price, mec = MEC)
+df_high &lt;- tibble(Q_high = Qhigh, price = price, mec = MEC)
+df_low &lt;- tibble(Q_low = Qlow, price = price, mec = MEC)
+
+# Demand Aggregate equation: P = -3.68e-5Q + 29.78
+D_agg &lt;- lm(price ~ Qagg, data = df_agg)
+p &lt;- 10
+
+
+# Calculate quantity at free-market equilibrium
+d_agg_model &lt;- demand_quant(p, D_agg)</code></pre>
+<pre class="r"><code># find supply (MPC) curve equation
+mpc_slope &lt;- 10 / d_agg_model
+# MPC equation: P = 1.86e-5Q
+
+
+quantity = seq(0, 825000, length.out = 100)
+mpc &lt;- map(quantity, mpc_curve) %&gt;% 
+  unlist()
+
+df_mpc &lt;- tibble(quantity = quantity, price = mpc, mec = MEC, msc = (mpc_slope * quantity) + mec)
+
+mpc_model &lt;- lm(price ~ quantity, data = df_mpc)</code></pre>
+<p>#Define SCC conversion function</p>
+<pre class="r"><code>SCC_conversion &lt;- function(SCC_dollars)
+{
+  #given SCC in $, calc and return SCC in cents/kwH
+  SCC &lt;- (100*0.85*SCC_dollars)/2205
+  return(SCC)
+}</code></pre>
+</div>
+<div id="define-demand-functions" class="section level1">
+<h1>Define Demand Functions</h1>
+<pre class="r"><code># function for d_agg equation after kink (to find price)
 D_agg_fun &lt;- function(q) {
   p &lt;- (D_agg$coefficients[[2]] * q) + D_agg$coefficients[[1]]
   return(p)
+}</code></pre>
+<pre class="r"><code>MSC_eq &lt;- function(MEC){
+  MSC &lt;- mpc_model
+  MSC$coefficients[1] &lt;- MSC$coefficients[1] + MEC
+  return(MSC)
 }</code></pre>
 <pre class="r"><code># Linear model Intercept function
 lmIntx &lt;- function(fit1, fit2) {
@@ -277,16 +334,15 @@ true_demand_curve &lt;- function(p)
   }
   return(eq_p_q)
 }</code></pre>
-<pre class="r"><code># demand_agg_full_eq(MEC)</code></pre>
-</div>
-<div id="define-supply-functions" class="section level1">
-<h1>Define Supply Functions</h1>
+<pre class="r"><code>demand_agg_full_eq(MEC)</code></pre>
+<pre><code>##  (Intercept)     quantity 
+## 502598.86320     11.30585</code></pre>
+<p>#Define Supply Functions</p>
 <pre class="r"><code># creates a function for the supply curve
 mpc_curve &lt;- function(q) {
   p &lt;- mpc_slope * q
   p &lt;- ifelse(p &lt; 0, 0, p)
-  return(p) 
-  }
+  return(p) }
   
 supply_quant &lt;- function(p, model) {
   q &lt;- (p - model$coefficients[[1]]) / model$coefficients[[2]]
@@ -297,13 +353,6 @@ supply_quant &lt;- function(p, model) {
 MSC_fun &lt;- function(q) {
   p &lt;- mpc_slope * q + MEC
   return(p)
-}
-
-MSC_eq &lt;- function(MEC)
-{
-  MSC &lt;- mpc_model
-  MSC$coefficients[1] &lt;- MSC$coefficients[1] + MEC
-  return(MSC)
 }</code></pre>
 </div>
 <div id="define-consumer-and-producer-surplus-functions" class="section level1">
@@ -336,28 +385,33 @@ PS &lt;- function(p, model) {
   return(ps)
 }
 
-ps &lt;- function(p) {
-  ps &lt;- PS(p, mpc_model)
-  return(ps)
-}</code></pre>
-</div>
-<div id="define-tax-functions" class="section level1">
-<h1>Define tax functions</h1>
+# ps &lt;- function(p) {
+#   ps &lt;- PS(p, mpc_model)
+#   return(ps)</code></pre>
+<p>#Define tax functions</p>
 <pre class="r"><code>tax_rev &lt;- function(q, MEC) {
   area &lt;- MEC * q
   return(area)
 }</code></pre>
+<pre class="r"><code>tax_rebate &lt;- function(q, MEC, demand_ratio) {
+  tax_reb &lt;- demand_ratio * MEC * q
+  return(tax_reb)
+}</code></pre>
+<pre class="r"><code>welfare_h &lt;- function(SCC) {
+  eq_p_q &lt;- demand_agg_full_eq(SCC)
+  welfare_h &lt;- CS(eq_p_q[2])
+}</code></pre>
 </div>
 <div id="questions" class="section level1 tabset tabset-fade">
 <h1 class="tabset tabset-fade">Questions</h1>
-<div id="question-1" class="section level2">
+<div id="question-1-1" class="section level2">
 <h2>Question 1</h2>
 <pre class="r"><code># 2205 pounds = 1 ton
 # $1 = 100 cents
 MEC &lt;- (100 * 0.85 * 51) / 2205</code></pre>
 <p>The marginal external cost value is 1.9659864 cents.</p>
 </div>
-<div id="question-2" class="section level2">
+<div id="question-2-1" class="section level2">
 <h2>Question 2</h2>
 <pre class="r"><code>model_demand_l &lt;- lm(price_cents  ~ q_low_kwh, data=df)
 model_demand_h &lt;- lm(price_cents ~ q_high_kwh, data=df)
@@ -437,6 +491,8 @@ high_perc &lt;- benefit_high * 100
 # 15.31% of the consumer surplus benefits the low consumers
 benefit_low &lt;- CS_low_val / consumer_surplus
 low_perc &lt;- benefit_low * 100</code></pre>
+<p><strong>Total Consumer Surplus:</strong> 5.2987224^{6} cents</p>
+<p>The high income consumers receive 84.69% and the low income consumers receive 15.31% of the total consumer surplus.</p>
 </div>
 <div id="question-4" class="section level2">
 <h2>Question 4</h2>
@@ -463,14 +519,33 @@ cs_low_w_tax &lt;- CS_low(p_tilde)
 p_tau &lt;- p_tilde - MEC
 
 # PS with tax is 2,347,101. Welfare decreases with tax.
-ps_w_tax &lt;- ps(p_tau) #change, eliminated ps function, need PS(p_tau, msc)
+ps_w_tax &lt;- PS(p_tau, MSC_eq(SCC_conversion(51))) #change, eliminated ps function, need PS(p_tau, msc)
 
 # total environmental damage is 988,103
 TED &lt;- tax_rev(q_tilde, MEC)
 
 # total environmental damage is 988,103
 tot_rev &lt;- tax_rev(q_tilde, MEC)</code></pre>
+<p>With the social optimal tax:</p>
+<ul>
+<li><strong>The amount of electricity produced and consumed:</strong> 5.0259886^{5} kWh</li>
+<li><strong>The price of electricity:</strong> 11.3058462cents</li>
+<li><strong>Overall welfare for “high” income consumers:</strong> 3.9614537^{6} cents</li>
+<li><strong>Overall welfare for “low” income consumers:</strong> 6.6052421^{5} cents</li>
+<li><strong>Power Suppliers:</strong> 1.4629939^{6}</li>
+<li><strong>Total Environmental Damage:</strong> 9.8810253^{5}</li>
+<li><strong>Total Tax Revenue Generated:</strong> 9.8810253^{5}</li>
+</ul>
 </div>
+<div id="question-5" class="section level2">
+<h2>Question 5</h2>
+</div>
+<div id="question-6" class="section level2">
+<h2>Question 6</h2>
+</div>
+</div>
+<div id="end-of-homework-3" class="section level1">
+<h1>End of homework 3</h1>
 </div>
 
 
