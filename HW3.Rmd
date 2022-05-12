@@ -2,7 +2,9 @@
 title: "ESM 204 Homework 3"
 author: "Kiera Matiska, Virginia Pan, Devon Rossi"
 date: "5/6/2022"
-output: html_document
+output:
+   html_document: 
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -12,22 +14,21 @@ library(tidyverse)
 #library(rootSolve)
 library(janitor)
 library(tibble)
+library(equatiomatic)
 ```
 
 ```{r}
 df <- read_csv("HW3_data.csv") %>% 
   select(-1) %>% 
   clean_names()
-
 ```
 
-#Define SCC conversion function
+# Define SCC conversion function
 
 ```{r}
-SCC_conversion <- function(SCC_dollars)
-{
+SCC_conversion <- function(SCC_dollars) {
   #given SCC in $, calc and return SCC in cents/kwH
-  SCC <- (100*0.85*SCC_dollars)/2205
+  SCC <- (100 * 0.85 * SCC_dollars)/2205
   return(SCC)
 }
 ```
@@ -61,7 +62,6 @@ D_agg_fun <- function(q) {
   p <- (D_agg$coefficients[[2]] * q) + D_agg$coefficients[[1]]
   return(p)
 }
-
 ```
 
 ```{r}
@@ -118,17 +118,18 @@ demand_agg_full_eq <- function(SCC)
 ```
 
 ```{r}
-demand_agg_full_eq(MEC)
+# demand_agg_full_eq(MEC)
 ```
 
-#Define Supply Functions 
+# Define Supply Functions 
 
 ```{r}
 # creates a function for the supply curve
 mpc_curve <- function(q) {
   p <- mpc_slope * q
   p <- ifelse(p < 0, 0, p)
-  return(p) }
+  return(p) 
+  }
   
 supply_quant <- function(p, model) {
   q <- (p - model$coefficients[[1]]) / model$coefficients[[2]]
@@ -180,13 +181,13 @@ PS <- function(p, model) {
   return(ps)
 }
 
-# ps <- function(p) {
-#   ps <- PS(p, mpc_model)
-#   return(ps)
-
+ps <- function(p) {
+  ps <- PS(p, mpc_model)
+  return(ps)
+}
 ```
 
-#Define tax functions 
+# Define tax functions 
 
 ```{r}
 tax_rev <- function(q, MEC) {
@@ -264,8 +265,9 @@ tax_rev <- function(q, MEC) {
 
 
 
+# Questions {.tabset .tabset-fade}
 
-# Question 1
+## Question 1
 
 ```{r}
 # 2205 pounds = 1 ton
@@ -273,25 +275,14 @@ tax_rev <- function(q, MEC) {
 MEC <- (100 * 0.85 * 51) / 2205
 ```
 
-# Question 2
+The marginal external cost value is `r MEC` cents.
+
+## Question 2
 
 ```{r}
 model_demand_l <- lm(price_cents  ~ q_low_kwh, data=df)
 model_demand_h <- lm(price_cents ~ q_high_kwh, data=df)
-```
 
-```{r}
-# need to rearrange the parameter to get Q(P)! 
-
-# Qgg = Qlow(P) + Qlow(h) 
-
-# Importantly, since they-intercepts are different, we know that Qagg(P) will have a kink. I include an ifelse() statement to take
-# care of the kink.
-
-```
-
-
-```{r}
 price = seq(0, 30, length.out = 100)
 Qagg <- map(price, demand_agg) %>% 
   unlist()
@@ -308,16 +299,17 @@ df_low <- tibble(Q_low = Qlow, price = price, mec = MEC)
 D_agg <- lm(price ~ Qagg, data = df_agg)
 p <- 10
 
-
 # Calculate quantity at free-market equilibrium
 d_agg_model <- demand_quant(p, D_agg)
 ```
+
+**Aggregate Demand Equation:** P = `r D_agg$coefficients`Q + `r D_agg$coefficients[2]`
+**Free-Market Equilibrium
 
 ```{r}
 # find supply (MPC) curve equation
 mpc_slope <- 10 / d_agg_model
 # MPC equation: P = 1.86e-5Q
-
 
 quantity = seq(0, 825000, length.out = 100)
 mpc <- map(quantity, mpc_curve) %>% 
@@ -326,7 +318,6 @@ mpc <- map(quantity, mpc_curve) %>%
 df_mpc <- tibble(quantity = quantity, price = mpc, mec = MEC, msc = (mpc_slope * quantity) + mec)
 
 mpc_model <- lm(price ~ quantity, data = df_mpc)
-
 ```
 
 ```{r}
@@ -335,7 +326,6 @@ consumer_surplus <- CS_agg(p)
 ```
 
 ```{r}
-
 # producer surplus = 2,690,612.46 cents
 producer_surplus <- PS(p, mpc_model)
 ```
@@ -366,7 +356,7 @@ ggplot() +
             color = "maroon")
 ```
 
-# Question 3
+## Question 3
 
 ```{r}
 CS_high_val <- CS(p, model_demand_h)
@@ -381,7 +371,7 @@ benefit_low <- CS_low_val / consumer_surplus
 low_perc <- benefit_low * 100
 ```
 
-# Question 4
+## Question 4
 
 ```{r}
 # optimal electricity tax = 1.97 cents
