@@ -21,27 +21,22 @@ library(equatiomatic)
 df <- read_csv("HW3_data.csv") %>% 
   select(-1) %>% 
   clean_names()
+
 ```
 
-# Define SCC conversion function
-
 ```{r}
-SCC_conversion <- function(SCC_dollars) {
-  #given SCC in $, calc and return SCC in cents/kwH
-  SCC <- (100 * 0.85 * SCC_dollars)/2205
-  return(SCC)
-}
-```
+# creates a function for the supply curve
+mpc_curve <- function(q) {
+  p <- mpc_slope * q
+  p <- ifelse(p < 0, 0, p)
+  return(p) }
 
-# Define Demand Functions
-
-```{r}
 # define a function to get demand
 demand_quant <- function(p, model){
   q <- (p - model$coefficients[[1]])/model$coefficients[[2]]
   q <- ifelse(q<0,0,q)
   return(q) }
-  
+
 # for each p level, return estimated aggregate demand
 demand_agg <- function(p){
   q <- demand_quant(p, model_demand_l) + demand_quant(p, model_demand_h)
@@ -56,11 +51,100 @@ demand_low <- function(p) {
 demand_high <- function(p) {
   q <- demand_quant(p, model_demand_h)
   return(q) }
+```
+
+# Question 1
+
+```{r}
+# 2205 pounds = 1 ton
+# $1 = 100 cents
+MEC <- (100 * 0.85 * 51) / 2205
+```
+
+# Question 2
+
+```{r}
+model_demand_l <- lm(price_cents  ~ q_low_kwh, data=df)
+model_demand_h <- lm(price_cents ~ q_high_kwh, data=df)
+```
+
+```{r}
+# need to rearrange the parameter to get Q(P)! 
+
+# Qgg = Qlow(P) + Qlow(h) 
+
+# Importantly, since they-intercepts are different, we know that Qagg(P) will have a kink. I include an ifelse() statement to take
+# care of the kink.
+
+```
+
+
+```{r}
+price = seq(0, 30, length.out = 100)
+Qagg <- map(price, demand_agg) %>% 
+  unlist()
+Qlow <- map(price, demand_low) %>% 
+  unlist()
+Qhigh <- map(price, demand_high) %>% 
+  unlist()
+
+df_agg <- tibble(Qagg = Qagg, price = price, mec = MEC)
+df_high <- tibble(Q_high = Qhigh, price = price, mec = MEC)
+df_low <- tibble(Q_low = Qlow, price = price, mec = MEC)
+
+# Demand Aggregate equation: P = -3.68e-5Q + 29.78
+D_agg <- lm(price ~ Qagg, data = df_agg)
+p <- 10
+
+
+# Calculate quantity at free-market equilibrium
+d_agg_model <- demand_quant(p, D_agg)
+```
+
+```{r}
+# find supply (MPC) curve equation
+mpc_slope <- 10 / d_agg_model
+# MPC equation: P = 1.86e-5Q
+
+
+quantity = seq(0, 825000, length.out = 100)
+mpc <- map(quantity, mpc_curve) %>% 
+  unlist()
+
+df_mpc <- tibble(quantity = quantity, price = mpc, mec = MEC, msc = (mpc_slope * quantity) + mec)
+
+mpc_model <- lm(price ~ quantity, data = df_mpc)
+
+```
+
+#Define SCC conversion function
+
+```{r}
+SCC_conversion <- function(SCC_dollars)
+{
+  #given SCC in $, calc and return SCC in cents/kwH
+  SCC <- (100*0.85*SCC_dollars)/2205
+  return(SCC)
+}
+```
+
+# Define Demand Functions
+
+```{r}
   
 # function for d_agg equation after kink (to find price)
 D_agg_fun <- function(q) {
   p <- (D_agg$coefficients[[2]] * q) + D_agg$coefficients[[1]]
   return(p)
+}
+
+```
+
+```{r}
+MSC_eq <- function(MEC){
+  MSC <- mpc_model
+  MSC$coefficients[1] <- MSC$coefficients[1] + MEC
+  return(MSC)
 }
 ```
 
@@ -118,18 +202,17 @@ demand_agg_full_eq <- function(SCC)
 ```
 
 ```{r}
-# demand_agg_full_eq(MEC)
+demand_agg_full_eq(MEC)
 ```
 
-# Define Supply Functions 
+#Define Supply Functions 
 
 ```{r}
 # creates a function for the supply curve
 mpc_curve <- function(q) {
   p <- mpc_slope * q
   p <- ifelse(p < 0, 0, p)
-  return(p) 
-  }
+  return(p) }
   
 supply_quant <- function(p, model) {
   q <- (p - model$coefficients[[1]]) / model$coefficients[[2]]
@@ -142,12 +225,7 @@ MSC_fun <- function(q) {
   return(p)
 }
 
-MSC_eq <- function(MEC)
-{
-  MSC <- mpc_model
-  MSC$coefficients[1] <- MSC$coefficients[1] + MEC
-  return(MSC)
-}
+
 ```
 
 # Define consumer and producer surplus functions
@@ -181,13 +259,13 @@ PS <- function(p, model) {
   return(ps)
 }
 
-ps <- function(p) {
-  ps <- PS(p, mpc_model)
-  return(ps)
-}
+# ps <- function(p) {
+#   ps <- PS(p, mpc_model)
+#   return(ps)
+
 ```
 
-# Define tax functions 
+#Define tax functions 
 
 ```{r}
 tax_rev <- function(q, MEC) {
@@ -196,6 +274,19 @@ tax_rev <- function(q, MEC) {
 }
 ```
 
+```{r}
+tax_rebate <- function(q, MEC, demand_ratio) {
+  tax_reb <- demand_ratio * MEC * q
+  return(tax_reb)
+}
+```
+
+```{r}
+welfare_h <- function(SCC) {
+  eq_p_q <- demand_agg_full_eq(SCC)
+  welfare_h <- CS(eq_p_q[2])
+}
+```
 
 
 
